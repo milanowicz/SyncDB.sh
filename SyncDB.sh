@@ -4,7 +4,7 @@
 ##                                ##
 ##  MySQL Database Sync Script    ##
 ##                                ##
-##  Script Version 0.9.0          ##
+##  Script Version 0.9.1          ##
 ##                                ##
 ####################################
 ####################################
@@ -220,13 +220,17 @@ elif [ "$1" == "dump" ]; then
         # Sichere die ReadOnly Tabellen Struktur
         # - ohne Daten
         # - ohne Kommentare
+        # - ohne Charset Kommentare
+        # - ohne Timezone Kommentare
         # - Ersetze keine Tabellen die schon vorhanden sind (Wichtig !)
         # - ohne Trigger Tabellen
         # | Entferne die AUTO_INCREMENTs von der ReadOnly Struktur
         echo "Dump of readonly table structure . . ."
         $Prompt -u $Username -p$Password -h $Hostname -P $Port \
             --no-data \
-            --comments=FALSE \
+            --skip-comments \
+            --skip-set-charset \
+            --skip-tz-utc \
             --add-drop-table=FALSE \
             --skip-triggers \
             $IgnoreUserDataTable $MySQLDB $ReadTableNames | \
@@ -241,13 +245,17 @@ elif [ "$1" == "dump" ]; then
         # Sichere die ReadOnly Tabellen Struktur von den Benutzer Daten
         # - ohne Daten
         # - ohne Kommentare
+        # - ohne Charset Kommentare
+        # - ohne Timezone Kommentare
         # - Ersetze keine Tabellen die schon vorhanden sind (Wichtig !)
         # - ohne Trigger Tabellen
         # | Entferne die AUTO_INCREMENTs von der ReadOnly Struktur
         echo "Dump of user table structure . . ."
         $Prompt -u $Username -p$Password -h $Hostname -P $Port \
             --no-data \
-            --comments=FALSE \
+            --skip-comments \
+            --skip-set-charset \
+            --skip-tz-utc \
             --skip-triggers \
             $MySQLDB $UserTableNames | \
             sed -e 's/ AUTO_INCREMENT=[0-9]*//' > $DBPath"/"$DBNames"_UserStructure.sql" || exit
@@ -255,6 +263,8 @@ elif [ "$1" == "dump" ]; then
         # Sichern der Benutzer Daten von der Datenbank
         # - ohne Tabellen Struktur
         # - ohne Kommentare
+        # - ohne Charset Kommentare
+        # - ohne Timezone Kommentare
         # - Sortiert nach Primary Keys (wegen Git Diffs)
         # - Eine Zeile pro INSERT (wegen Git Diffs)
         # - Komplette INSERT Syntax mit Spaltennamen
@@ -262,7 +272,9 @@ elif [ "$1" == "dump" ]; then
         echo "Dump of user data . . ."
         $Prompt -u $Username -p$Password -h $Hostname -P $Port \
             --no-create-info \
-            --comments=FALSE \
+            --skip-comments \
+            --skip-set-charset \
+            --skip-tz-utc \
             --order-by-primary \
             --extended-insert=FALSE \
             --complete-insert \
@@ -274,13 +286,17 @@ elif [ "$1" == "dump" ]; then
     # Exportieren der Tabellen Struktur fuer die Daten
     # - ohne Daten
     # - ohne Kommentare
+    # - ohne Charset Kommentare
+    # - ohne Timezone Kommentare
     # - ohne Trigger Tabellen
     # - ohne ReadOnly Tabellen sichern
     # | Entferne die AUTO_INCREMENTs von der Struktur
     echo "Dump of table structure . . ."
     $Prompt -u $Username -p$Password -h $Hostname -P $Port \
         --no-data \
-        --comments=FALSE \
+        --skip-comments \
+	    --skip-set-charset \
+        --skip-tz-utc \
         --skip-triggers \
         $IgnoreTable $IgnoreUserDataTable $MySQLDB | \
         sed -e 's/ AUTO_INCREMENT=[0-9]*//' > $DBPath"/"$DBNames"_Structure.sql" || exit
@@ -289,6 +305,8 @@ elif [ "$1" == "dump" ]; then
     # Sichern der Daten von der Datenbank
     # - ohne Tabellen Struktur
     # - ohne Kommentare
+    # - ohne Charset Kommentare
+    # - ohne Timezone Kommentare
     # - Sortiert nach Primary Keys (wegen Git Diffs)
     # - Eine Zeile pro INSERT (wegen Git Diffs)
     # - Komplette INSERT Syntax mit Spaltennamen
@@ -296,7 +314,9 @@ elif [ "$1" == "dump" ]; then
     echo "Dump of data . . ."
     $Prompt -u $Username -p$Password -h $Hostname -P $Port \
         --no-create-info \
-        --comments=FALSE \
+        --skip-comments \
+	    --skip-set-charset \
+        --skip-tz-utc \
         --order-by-primary \
         --extended-insert=FALSE \
         --complete-insert \
@@ -315,12 +335,16 @@ elif [ "$1" == "dumpfull" ]; then
         # Sichere die ReadOnly Tabellen Struktur
         # - ohne Daten
         # - ohne Kommentare
+        # - ohne Charset Kommentare
+        # - ohne Timezone Kommentare
         # - Ersetze keine Tabellen die schon vorhanden sind (Wichtig !)
         # - ohne Trigger Tabellen
         echo "Dump of readonly table structure . . ."
         $Prompt -u $Username -p$Password -h $Hostname -P $Port \
             --no-data \
-            --comments=FALSE \
+            --skip-comments \
+            --skip-set-charset \
+            --skip-tz-utc \
             --add-drop-table=FALSE \
             --skip-triggers \
             $MySQLDB $ReadTableNames > $DBPath"/"$DBNames"_Full.sql" || exit
@@ -330,6 +354,9 @@ elif [ "$1" == "dumpfull" ]; then
 
     # Sichern der Daten von der Datenbank    
     # - Sortiert nach Primary Keys (wegen Git Diffs)
+    # - ohne Kommentare
+    # - ohne Charset Kommentare
+    # - ohne Timezone Kommentare
     # - Eine Zeile pro INSERT (wegen Git Diffs)
     # - Komplette INSERT Syntax mit Spaltennamen
     # - Ohne ReadOnly Tabellen
@@ -337,7 +364,9 @@ elif [ "$1" == "dumpfull" ]; then
     echo "Dump of all data with user data . . ."
     $Prompt -u $Username -p$Password -h $Hostname -P $Port \
         --order-by-primary \
-        --extended-insert=FALSE \
+        --skip-comments \
+	    --skip-set-charset \
+        --skip-tz-utc \
         --complete-insert \
         $IgnoreTable $MySQLDB | \
         sed -e 's/ AUTO_INCREMENT=[0-9]*//' >> $DBPath"/"$DBNames"_Full.sql" || exit
@@ -352,9 +381,15 @@ elif [ "$1" == "dumpcomplete" ]; then
 
     # Sichern der Daten von der Datenbank
     # - Sortiert nach Primary Keys (wegen Git Diffs)
+    # - ohne Kommentare
+    # - ohne Charset Kommentare
+    # - ohne Timezone Kommentare
     echo "Dump complete database with all in it . . ."
     $Prompt -u $Username -p$Password -h $Hostname -P $Port \
         --order-by-primary \
+        --skip-comments \
+	    --skip-set-charset \
+        --skip-tz-utc \
         $MySQLDB > $DBPath"/"$DBNames"_Complete.sql" || exit
 
 
