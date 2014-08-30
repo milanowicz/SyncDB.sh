@@ -4,7 +4,7 @@
 ##                                ##
 ##  MySQL Database Sync Script    ##
 ##                                ##
-##  Script Version 0.9.2          ##
+##  Script Version 0.9.21         ##
 ##                                ##
 ####################################
 ####################################
@@ -43,6 +43,8 @@ fi
 # Check the MySQL application binary
 function GetBashPrompt () {
 
+    Prompt=
+
     # Set Linux default if empty
     if [ -z $PathBin ]; then
 
@@ -58,37 +60,38 @@ function GetBashPrompt () {
 
                 # Wenn das Kommando nicht gefunden wird,
                 # dann Shell Skript abbrechen
-                echo "Error: You do not have which and can not find mysql binrary path or enter wrong path in the local.sh!"
+                echo "Error: You do not have the application which, plrase enter your MySQL binrary path in the local.sh file!"
                 exit 1
 
             fi
         fi
     fi
 
+    # Set Prompt when it not be set
+    if [ -z $Prompt ]; then
 
-    # MySQL Kommando ermitteln
-    Prompt=
-    ls $PathBin""$1> /dev/null 2> /dev/null
+        # MySQL Kommando ermitteln
+        ls $PathBin""$1> /dev/null 2> /dev/null
 
-    # Pruefen ob Kommando vorhanden war
-    if [ $? != 0 ]; then
-
-        ls $PathBin"/"$1> /dev/null 2> /dev/null
-
+        # Pruefen ob Kommando vorhanden war
         if [ $? != 0 ]; then
 
-            # Wenn das Kommando nicht gefunden wird,
-            # dann Shell Skript abbrechen
-            echo "Error: You do not have which and can not find mysql binrary path or enter wrong path in the local.sh!"
-            exit 1
+            ls $PathBin"/"$1> /dev/null 2> /dev/null
 
+            if [ $? != 0 ]; then
+
+                # Wenn das Kommando nicht gefunden wird,
+                # dann Shell Skript abbrechen
+                echo "Error: You enter a wrong MySQL binrary path in the local.sh!"
+                exit 1
+
+            else
+                Prompt=$PathBin"/"$1
+            fi
         else
-            Prompt=$PathBin"/"$1
+            Prompt=$PathBin""$1
         fi
-    else
-        Prompt=$PathBin""$1
     fi
-    
 }
 
 
