@@ -35,15 +35,11 @@ Dump Database into Sql dump files with User data.
 
 Insert SQL Backup file into the Database back.
 
-    $ . local.sh full sync
+    $ . local.sh full <Filename>
 
 Generate one file from five files.
 
     $ . local.sh dumpfull
-
-Insert a Complete SQL Backup file into the Database.
-
-    $ . local.sh full complete
 
 Complete SQL Database Backup file.
 
