@@ -4,39 +4,52 @@
 ##                                ##
 ##  MySQL Database Sync Script    ##
 ##                                ##
-##  Script Version 0.9.21         ##
+##  Script Version 0.9.3          ##
 ##                                ##
 ####################################
 ####################################
 
+Error=0
+
+if [ $# -eq 0 ]; then
+    Error=1
+fi
+
 # Set Username if empty
-if [ -z $Username ]; then
+if [ -z ${Username} ]; then
     Username="root"
 fi
 
 # Set Password if empty
-if [ -z $Password ]; then
+if [ -z ${Password} ]; then
     Password="123456"
 fi
 
 # Set Port if empty
-if [ -z $Port ]; then
+if [ -z ${Port} ]; then
     Port="3306"
 fi
 
 # Set Hostname if empty
-if [ -z $Hostname ]; then
+if [ -z ${Hostname} ]; then
     Hostname="127.0.0.1"
 fi
 
 # Set DBPath if empty
-if [ -z $DBPath ]; then
+if [ -z ${DBPath} ]; then
     DBPath="db"
 fi
 
+if [ -z ${DBNames} ]; then
+    DBNames=""
+    echo -e "\nError: Varaible DBNames is not set!"
+    echo -e "export DBNames=\"<Project Name>\""
+    exit 2
+fi
+
 # Set MySQLDB equal DBNames if is empty
-if [ -z $MySQLDB ]; then
-    MySQLDB=$DBNames
+if [ -z ${MySQLDB} ]; then
+    MySQLDB=${DBNames}
 fi
 
 
@@ -46,21 +59,21 @@ function GetBashPrompt () {
     Prompt=
 
     # Set Linux default if empty
-    if [ -z $PathBin ]; then
+    if [ -z ${PathBin} ]; then
 
         # Get absolute path to binrary file
         Prompt=`which $1`
 
-        if [ -n $Prompt ]; then
+        if [ -n ${Prompt} ]; then
 
             # Check if exists
-            ls $Prompt > /dev/null 2> /dev/null
+            ls ${Prompt} > /dev/null 2> /dev/null
 
             if [ $? != 0 ]; then
 
                 # Wenn das Kommando nicht gefunden wird,
                 # dann Shell Skript abbrechen
-                echo "Error: You do not have the application which, plrase enter your MySQL binrary path in the local.sh file!"
+                echo "Error: You do not have the application which, please enter your MySQL binrary path in the local.sh file!"
                 exit 1
 
             fi
@@ -68,15 +81,15 @@ function GetBashPrompt () {
     fi
 
     # Set Prompt when it not be set
-    if [ -z $Prompt ]; then
+    if [ -z ${Prompt} ]; then
 
         # MySQL Kommando ermitteln
-        ls $PathBin""$1> /dev/null 2> /dev/null
+        ls ${PathBin}""$1> /dev/null 2> /dev/null
 
         # Pruefen ob Kommando vorhanden war
         if [ $? != 0 ]; then
 
-            ls $PathBin"/"$1> /dev/null 2> /dev/null
+            ls ${PathBin}"/"$1> /dev/null 2> /dev/null
 
             if [ $? != 0 ]; then
 
@@ -86,10 +99,10 @@ function GetBashPrompt () {
                 exit 1
 
             else
-                Prompt=$PathBin"/"$1
+                Prompt=${PathBin}"/"$1
             fi
         else
-            Prompt=$PathBin""$1
+            Prompt=${PathBin}""$1
         fi
     fi
 }
@@ -99,19 +112,21 @@ function GetBashPrompt () {
 ReadTableNames=
 IgnoreTable=
 
-ls $DBPath"/"$DBNames"_ReadTable" > /dev/null 2> /dev/null
-if [ $? == 0 ]; then
+if [ ${Error} -eq 0 ]; then
+    ls ${DBPath}"/"${DBNames}"_ReadTable" > /dev/null 2> /dev/null
+    if [ $? == 0 ]; then
 
-    while read Line
-    do
-        ReadTableNames="$ReadTableNames $Line"
-    done < $DBPath"/"$DBNames"_ReadTable"
+        while read Line
+        do
+            ReadTableNames="${ReadTableNames} $Line"
+        done < ${DBPath}"/"${DBNames}"_ReadTable"
 
-    # ReadTableNames String mit --ignore-table verschachteln
-    for Elem in $ReadTableNames ; do
-        IgnoreTable="$IgnoreTable --ignore-table=$MySQLDB.$Elem"
-    done
+        # ReadTableNames String mit --ignore-table verschachteln
+        for Elem in ${ReadTableNames} ; do
+            IgnoreTable="${IgnoreTable} --ignore-table=${MySQLDB}.$Elem"
+        done
 
+    fi
 fi
 
 
@@ -119,29 +134,30 @@ fi
 UserTableNames=
 IgnoreUserDataTable=
 
-ls $DBPath"/"$DBNames"_UserTable" > /dev/null 2> /dev/null
-if [ $? == 0 ]; then
+if [ ${Error} -eq 0 ]; then
 
-    while read Line
-    do
-        UserTableNames="$UserTableNames $Line"
-    done < $DBPath"/"$DBNames"_UserTable"
+    ls ${DBPath}"/"${DBNames}"_UserTable" > /dev/null 2> /dev/null
 
-    # UserTableNames String mit --ignore-table verschachteln
-    for Elem in $UserTableNames ; do
-        IgnoreUserDataTable="$IgnoreUserDataTable --ignore-table=$MySQLDB.$Elem"
-    done
+    if [ $? == 0 ]; then
 
+        while read Line
+        do
+            UserTableNames="${UserTableNames} $Line"
+        done < ${DBPath}"/"${DBNames}"_UserTable"
+
+        # UserTableNames String mit --ignore-table verschachteln
+        for Elem in ${UserTableNames} ; do
+            IgnoreUserDataTable="${IgnoreUserDataTable} --ignore-table=${MySQLDB}.$Elem"
+        done
+
+    fi
 fi
 
 
-Fehler=0
-
 # Shell Uebergabe Parameter pruefen
-if [ $# -eq 0 ]; then
+if [ ${Error} -gt 0 ]; then
 
-    Fehler=1
-
+    echo -e "Error"
     
 # SQL Dumps in die MySQL Datenbank einspielen
 elif [ "$1" == "sync" ]; then
@@ -150,24 +166,24 @@ elif [ "$1" == "sync" ]; then
     GetBashPrompt "mysql"
 
     # Pruefen ob Datenbank vorhanden ist ?
-    $Prompt -u $Username -p$Password -h $Hostname -P $Port \
-        -e "CREATE DATABASE IF NOT EXISTS \`"$MySQLDB"\`;"
+    ${Prompt} -u ${Username} -p${Password} -h ${Hostname} -P ${Port} \
+        -e "CREATE DATABASE IF NOT EXISTS \`"${MySQLDB}"\`;"
 
 
     # Datenbank ReadOnly Tabellen importieren, 
     # falls ReadOnly Tabellen vorhanden sind
-    if [ -n "$IgnoreTable" ]; then
+    if [ -n "${IgnoreTable}" ]; then
         
-        ls $DBPath"/"$DBNames"_ReadOnly.sql" > /dev/null 2> /dev/null
+        ls ${DBPath}"/"${DBNames}"_ReadOnly.sql" > /dev/null 2> /dev/null
         
         if [ $? == 0 ]; then
             echo "Import of readonly table structure . . ."
             # Wenn etwas fehlschaegt, bedeutet es das die Tabelle schon erstellt ist
-            $Prompt -u $Username -p$Password -h $Hostname -P $Port \
-                --database=$MySQLDB < $DBPath"/"$DBNames"_ReadOnly.sql"
+            ${Prompt} -u ${Username} -p${Password} -h ${Hostname} -P ${Port} \
+                --database=${MySQLDB} < ${DBPath}"/"${DBNames}"_ReadOnly.sql"
     
         else
-            echo "Error: $DBPath/$Datenbanl_ReadOnly.sql not found !"
+            echo "Error: ${DBPath}/${DBNames}_ReadOnly.sql not found !"
     
         fi
     fi
@@ -177,47 +193,47 @@ elif [ "$1" == "sync" ]; then
     if [ "$2" == "user" ]; then
 
         # Tabellen Struktur vom Benutzer importieren
-        ls $DBPath/$DBNames"_UserStructure.sql" > /dev/null 2> /dev/null
+        ls ${DBPath}/${DBNames}"_UserStructure.sql" > /dev/null 2> /dev/null
         if [ $? == 0 ]; then
 
             echo "Import of user table structure . . ."
-            $Prompt -u $Username -p$Password -h $Hostname -P $Port \
-                --database=$MySQLDB < $DBPath"/"$DBNames"_UserStructure.sql" || exit
+            ${Prompt} -u ${Username} -p${Password} -h ${Hostname} -P ${Port} \
+                --database=${MySQLDB} < ${DBPath}"/"${DBNames}"_UserStructure.sql" || exit
 
         fi
 
         # Daten vom Benutzer importieren
-        ls $DBPath/$DBNames"_UserData.sql" > /dev/null 2> /dev/null
+        ls ${DBPath}/${DBNames}"_UserData.sql" > /dev/null 2> /dev/null
         if [ $? == 0 ]; then
             echo "Import of user data . . ."
-            $Prompt -u $Username -p$Password -h $Hostname -P $Port \
-                --database=$MySQLDB < $DBPath"/"$DBNames"_UserData.sql" || exit
+            ${Prompt} -u ${Username} -p${Password} -h ${Hostname} -P ${Port} \
+                --database=${MySQLDB} < ${DBPath}"/"${DBNames}"_UserData.sql" || exit
         fi
     fi
 
 
     # Datenbank Struktur importieren
-    ls $DBPath/$DBNames"_Structure.sql" > /dev/null 2> /dev/null
+    ls ${DBPath}/${DBNames}"_Structure.sql" > /dev/null 2> /dev/null
     if [ $? == 0 ]; then
         echo "Import of table structure . . ."
-        $Prompt -u $Username -p$Password -h $Hostname -P $Port \
-            --database=$MySQLDB < $DBPath"/"$DBNames"_Structure.sql" || exit
+        ${Prompt} -u ${Username} -p${Password} -h ${Hostname} -P ${Port} \
+            --database=${MySQLDB} < ${DBPath}"/"${DBNames}"_Structure.sql" || exit
 
     else
-        echo "Error: $DBPath/$DBName_Structure.sql not found !"
+        echo "Error: ${DBPath}/"${DBNames}"_Structure.sql not found !"
 
     fi
 
 
     # Datenbank Daten importieren
-    ls $DBPath/$DBNames"_Data.sql" > /dev/null 2> /dev/null
+    ls ${DBPath}/${DBNames}"_Data.sql" > /dev/null 2> /dev/null
     if [ $? == 0 ]; then
         echo "Import of data . . ."
-        $Prompt -u $Username -p$Password -h $Hostname -P $Port \
-            --database=$MySQLDB < $DBPath"/"$DBNames"_Data.sql" || exit
+        ${Prompt} -u ${Username} -p${Password} -h ${Hostname} -P ${Port} \
+            --database=${MySQLDB} < ${DBPath}"/"${DBNames}"_Data.sql" || exit
 
     else
-        echo "Error: $DBPath/$DBName_Data.sql not found !"
+        echo "Error: ${DBPath}/"${DBNames}"_Data.sql not found !"
 
     fi
 
@@ -230,7 +246,7 @@ elif [ "$1" == "dump" ]; then
 
     
     # Datenbank ReadOnly Tabellen exportieren
-    if [ -n "$IgnoreTable" ]; then
+    if [ -n "${IgnoreTable}" ]; then
 
         # Sichere die ReadOnly Tabellen Struktur
         # - ohne Daten
@@ -241,21 +257,21 @@ elif [ "$1" == "dump" ]; then
         # - ohne Trigger Tabellen
         # | Entferne die AUTO_INCREMENTs von der ReadOnly Struktur
         echo "Dump of readonly table structure . . ."
-        $Prompt -u $Username -p$Password -h $Hostname -P $Port \
+        ${Prompt} -u ${Username} -p${Password} -h ${Hostname} -P ${Port} \
             --no-data \
             --skip-comments \
             --skip-set-charset \
             --skip-tz-utc \
             --add-drop-table=FALSE \
             --skip-triggers \
-            $IgnoreUserDataTable $MySQLDB $ReadTableNames | \
-            sed -e 's/ AUTO_INCREMENT=[0-9]*//' > $DBPath"/"$DBNames"_ReadOnly.sql" || exit
+            ${IgnoreUserDataTable} ${MySQLDB} ${ReadTableNames} | \
+            sed -e 's/ AUTO_INCREMENT=[0-9]*//' > ${DBPath}"/"${DBNames}"_ReadOnly.sql" || exit
 
     fi
 
 
     # Datenbank ReadOnly Tabellen exportieren
-    if [ "$2" == "user" ] && [ -n "$IgnoreUserDataTable" ]; then
+    if [ "$2" == "user" ] && [ -n "${IgnoreUserDataTable}" ]; then
 
         # Sichere die ReadOnly Tabellen Struktur von den Benutzer Daten
         # - ohne Daten
@@ -266,14 +282,14 @@ elif [ "$1" == "dump" ]; then
         # - ohne Trigger Tabellen
         # | Entferne die AUTO_INCREMENTs von der ReadOnly Struktur
         echo "Dump of user table structure . . ."
-        $Prompt -u $Username -p$Password -h $Hostname -P $Port \
+        ${Prompt} -u ${Username} -p${Password} -h ${Hostname} -P ${Port} \
             --no-data \
             --skip-comments \
             --skip-set-charset \
             --skip-tz-utc \
             --skip-triggers \
-            $MySQLDB $UserTableNames | \
-            sed -e 's/ AUTO_INCREMENT=[0-9]*//' > $DBPath"/"$DBNames"_UserStructure.sql" || exit
+            ${MySQLDB} ${UserTableNames} | \
+            sed -e 's/ AUTO_INCREMENT=[0-9]*//' > ${DBPath}"/"${DBNames}"_UserStructure.sql" || exit
 
         # Sichern der Benutzer Daten von der Datenbank
         # - ohne Tabellen Struktur
@@ -285,7 +301,7 @@ elif [ "$1" == "dump" ]; then
         # - Komplette INSERT Syntax mit Spaltennamen
         # - Ohne ReadOnly Tabellen
         echo "Dump of user data . . ."
-        $Prompt -u $Username -p$Password -h $Hostname -P $Port \
+        ${Prompt} -u ${Username} -p${Password} -h ${Hostname} -P ${Port} \
             --no-create-info \
             --skip-comments \
             --skip-set-charset \
@@ -293,7 +309,7 @@ elif [ "$1" == "dump" ]; then
             --order-by-primary \
             --extended-insert=FALSE \
             --complete-insert \
-            $IgnoreTable $MySQLDB $UserTableNames > $DBPath"/"$DBNames"_UserData.sql" || exit
+            ${IgnoreTable} ${MySQLDB} ${UserTableNames} > ${DBPath}"/"${DBNames}"_UserData.sql" || exit
 
     fi
 
@@ -307,14 +323,14 @@ elif [ "$1" == "dump" ]; then
     # - ohne ReadOnly Tabellen sichern
     # | Entferne die AUTO_INCREMENTs von der Struktur
     echo "Dump of table structure . . ."
-    $Prompt -u $Username -p$Password -h $Hostname -P $Port \
+    ${Prompt} -u ${Username} -p${Password} -h ${Hostname} -P ${Port} \
         --no-data \
         --skip-comments \
 	    --skip-set-charset \
         --skip-tz-utc \
         --skip-triggers \
-        $IgnoreTable $IgnoreUserDataTable $MySQLDB | \
-        sed -e 's/ AUTO_INCREMENT=[0-9]*//' > $DBPath"/"$DBNames"_Structure.sql" || exit
+        ${IgnoreTable} ${IgnoreUserDataTable} ${MySQLDB} | \
+        sed -e 's/ AUTO_INCREMENT=[0-9]*//' > ${DBPath}"/"${DBNames}"_Structure.sql" || exit
 
 
     # Sichern der Daten von der Datenbank
@@ -327,7 +343,7 @@ elif [ "$1" == "dump" ]; then
     # - Komplette INSERT Syntax mit Spaltennamen
     # - Ohne ReadOnly Tabellen    
     echo "Dump of data . . ."
-    $Prompt -u $Username -p$Password -h $Hostname -P $Port \
+    ${Prompt} -u ${Username} -p${Password} -h ${Hostname} -P ${Port} \
         --no-create-info \
         --skip-comments \
 	    --skip-set-charset \
@@ -335,7 +351,7 @@ elif [ "$1" == "dump" ]; then
         --order-by-primary \
         --extended-insert=FALSE \
         --complete-insert \
-        $IgnoreTable $IgnoreUserDataTable $MySQLDB > $DBPath"/"$DBNames"_Data.sql" || exit
+        ${IgnoreTable} ${IgnoreUserDataTable} ${MySQLDB} > ${DBPath}"/"${DBNames}"_Data.sql" || exit
 
 
 # Komplette Datenbank in SQL Dumps sichern
@@ -345,7 +361,7 @@ elif [ "$1" == "dumpfull" ]; then
     GetBashPrompt "mysqldump"
         
     # Datenbank ReadOnly Tabellen exportieren
-    if [ -n "$IgnoreTable" ]; then
+    if [ -n "${IgnoreTable}" ]; then
 
         # Sichere die ReadOnly Tabellen Struktur
         # - ohne Daten
@@ -355,19 +371,19 @@ elif [ "$1" == "dumpfull" ]; then
         # - Ersetze keine Tabellen die schon vorhanden sind (Wichtig !)
         # - ohne Trigger Tabellen
         echo "Dump of readonly table structure . . ."
-        $Prompt -u $Username -p$Password -h $Hostname -P $Port \
+        ${Prompt} -u ${Username} -p${Password} -h ${Hostname} -P ${Port} \
             --no-data \
             --skip-comments \
             --skip-set-charset \
             --skip-tz-utc \
             --add-drop-table=FALSE \
             --skip-triggers \
-            $MySQLDB $ReadTableNames > $DBPath"/"$DBNames"_Full.sql" || exit
+            ${MySQLDB} ${ReadTableNames} > ${DBPath}"/"${DBNames}"_Full.sql" || exit
 
     fi
 
     # Datenbank ReadOnly Tabellen exportieren
-    if [ -n "$IgnoreUserDataTable" ]; then
+    if [ -n "${IgnoreUserDataTable}" ]; then
 
         # Sichern der Benutzer Daten von der Datenbank
         # - ohne Kommentare
@@ -378,14 +394,14 @@ elif [ "$1" == "dumpfull" ]; then
         # - Komplette INSERT Syntax mit Spaltennamen
         # - Ohne ReadOnly Tabellen
         echo "Dump of user data . . ."
-        $Prompt -u $Username -p$Password -h $Hostname -P $Port \
+        ${Prompt} -u ${Username} -p${Password} -h ${Hostname} -P ${Port} \
             --skip-comments \
             --skip-set-charset \
             --skip-tz-utc \
             --order-by-primary \
             --extended-insert=FALSE \
             --complete-insert \
-            $IgnoreTable $MySQLDB $UserTableNames > $DBPath"/"$DBNames"_UserData.sql" || exit
+            ${IgnoreTable} ${MySQLDB} ${UserTableNames} > ${DBPath}"/"${DBNames}"_UserData.sql" || exit
 
     fi
 
@@ -399,20 +415,20 @@ elif [ "$1" == "dumpfull" ]; then
     # - Ohne ReadOnly Tabellen
     # | Entferne die AUTO_INCREMENTs von der ReadOnly Struktur
     echo "Dump of all data with user data . . ."
-    $Prompt -u $Username -p$Password -h $Hostname -P $Port \
+    ${Prompt} -u ${Username} -p${Password} -h ${Hostname} -P ${Port} \
         --order-by-primary \
         --skip-comments \
 	    --skip-set-charset \
         --skip-tz-utc \
         --complete-insert \
-        $IgnoreTable $MySQLDB | \
-        sed -e 's/ AUTO_INCREMENT=[0-9]*//' >> $DBPath"/"$DBNames"_Full.sql" || exit
+        ${IgnoreTable} ${MySQLDB} | \
+        sed -e 's/ AUTO_INCREMENT=[0-9]*//' >> ${DBPath}"/"${DBNames}"_Full.sql" || exit
 
 
 # Komplette Datenbank in SQL Dumps sichern
 elif [ "$1" == "dumpcomplete" ]; then
 
-    # MySQLDump Kommando ermitteln
+    # MySQL Prompt
     GetBashPrompt "mysqldump"
 
 
@@ -422,44 +438,39 @@ elif [ "$1" == "dumpcomplete" ]; then
     # - ohne Charset Kommentare
     # - ohne Timezone Kommentare
     echo "Dump complete database with all in it . . ."
-    $Prompt -u $Username -p$Password -h $Hostname -P $Port \
+    ${Prompt} -u ${Username} -p${Password} -h ${Hostname} -P ${Port} \
         --order-by-primary \
         --skip-comments \
 	    --skip-set-charset \
         --skip-tz-utc \
-        $MySQLDB > $DBPath"/"$DBNames"_Complete.sql" || exit
+        ${MySQLDB} > ${DBPath}"/"${DBNames}"_Complete.sql" || exit
 
 
 # Komplette Datenbank zurueck in die MySQL Datenbank spielen
 elif [ "$1" == "full" ]; then
-
-    # Set Linux default if empty
-    if [ -z $PathBin ]; then
-        Prompt=`which mysql`
-    fi
 
     # MySQLDump Kommando ermitteln
     GetBashPrompt "mysql"
 
 
     # Pruefen ob Datenbank vorhanden ist, wenn ja drop and create
-    $Prompt -u $Username -p$Password -h $Hostname -P $Port \
-        -e "DROP DATABASE IF EXISTS \`"$MySQLDB"\`;"
+    ${Prompt} -u ${Username} -p${Password} -h ${Hostname} -P ${Port} \
+        -e "DROP DATABASE IF EXISTS \`"${MySQLDB}"\`;"
 
-    $Prompt -u $Username -p$Password -h $Hostname -P $Port \
-        -e "CREATE DATABASE IF NOT EXISTS \`"$MySQLDB"\`;"
+    ${Prompt} -u ${Username} -p${Password} -h ${Hostname} -P ${Port} \
+        -e "CREATE DATABASE IF NOT EXISTS \`"${MySQLDB}"\`;"
 
 
     # Datenbank importieren
-    ls $DBPath/$2".sql" > /dev/null 2> /dev/null
+    ls ${DBPath}/$2".sql" > /dev/null 2> /dev/null
     if [ $? == 0 ]; then
 
         echo "Import of "$2" sql file ..."
-        $Prompt -u $Username -p$Password -h $Hostname -P $Port \
-         --database=$MySQLDB < $DBPath"/"$2".sql" || exit
+        ${Prompt} -u ${Username} -p${Password} -h ${Hostname} -P ${Port} \
+         --database=${MySQLDB} < ${DBPath}"/"$2".sql" || exit
 
     else
-        echo "Error: $DBPath/$2.sql not found !"
+        echo "Error: ${DBPath}/$2.sql not found !"
 
     fi
 
@@ -467,13 +478,13 @@ elif [ "$1" == "full" ]; then
 else
     
     # Es wurde nich der richtige Parameter angegeben
-    Fehler=1
+    Error=1
     
 fi
 
 
 # Hilfe Ausgabe der Skript Parameter
-if [ $Fehler -eq 1 ]; then
+if [ ${Error} -eq 1 ]; then
 
     echo -e "\n###############################################################################"
     echo -e "#"
