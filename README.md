@@ -1,4 +1,4 @@
-# Database Bash Shell Script
+# [SyncDB.sh](https://github.com/Milanowicz/SyncDB.sh)
 
 A Git optimized BASH Shell Script to dump or insert from MySQL Database, and commit it into the repository.
 

@@ -14,7 +14,7 @@ export DBPath="db"
 export PathBin=""
 # Mac   -> /Applications/XAMPP/bin/
 # Linux -> /usr/bin/
-# Win   -> C:/xamp/mysql/bin/
+# Win   -> C:/xampp/mysql/bin/
 
 # File DB Name at repo
 export DBNames="<Project Name>"
@@ -22,5 +22,8 @@ export DBNames="<Project Name>"
 # Optional: Real MySQL Databasename
 export MySQLDB="<Real Database Name>"
 
+# Example and Optional: skip Timezone, skip Charset, skip Comments
+export MySQLOptions="--skip-tz-utc --skip-set-charset --skip-comments"
+
 # Sync script
-$DBPath/SyncDB.sh $1 $2
+${DBPath}/SyncDB.sh $1 $2

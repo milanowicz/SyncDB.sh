@@ -4,15 +4,22 @@
 ##                                ##
 ##  MySQL Database Sync Script    ##
 ##                                ##
-##  Script Version 0.9.3          ##
-##                                ##
 ####################################
 ####################################
-
+Version="0.9.4"
+ScriptFilename="SyncDB.sh"
 Error=0
 
 if [ $# -eq 0 ]; then
     Error=1
+else
+    if [ "$1" == "version" ]; then
+        Error=10
+    elif [ "$1" == "script" ]; then
+        Error=11
+    elif [ "$1" == "license" ]; then
+        Error=12
+    fi
 fi
 
 # Set Username if empty
@@ -35,21 +42,38 @@ if [ -z ${Hostname} ]; then
     Hostname="127.0.0.1"
 fi
 
-# Set DBPath if empty
-if [ -z ${DBPath} ]; then
-    DBPath="db"
+# Set MySQLOptions if empty
+if [ -z ${MySQLOptions} ]; then
+    MySQLOptions=""
 fi
 
-if [ -z ${DBNames} ]; then
-    DBNames=""
-    echo -e "\nError: Varaible DBNames is not set!"
-    echo -e "export DBNames=\"<Project Name>\""
-    exit 2
-fi
+if [ "$1" != "dumpfile" ] && [ "$1" != "syncfile" ]; then
 
-# Set MySQLDB equal DBNames if is empty
-if [ -z ${MySQLDB} ]; then
-    MySQLDB=${DBNames}
+    # Set DBPath if empty
+    if [ -z ${DBPath} ]; then
+        DBPath="db"
+    fi
+
+    if [ -z ${DBNames} ] && [ ${Error} -eq 0 ]; then
+        DBNames=""
+        echo -e "\nError: Variable DBNames is not set!"
+        echo -e "export DBNames=\"<Project Name>\""
+        Error=2
+    fi
+
+    # Set MySQLDB equal DBNames if is empty
+    if [ -z ${MySQLDB} ]; then
+        MySQLDB=${DBNames}
+    fi
+
+else
+
+    # Set MySQLDB equal DBNames if is empty
+    if [ -z ${MySQLDB} ]; then
+        echo -e "\nError: Variable MySQLDB is not set!"
+        echo -e "export MySQLDB=\"<MySQL Database>\""
+        Error=3
+    fi
 fi
 
 
@@ -107,6 +131,17 @@ function GetBashPrompt () {
     fi
 }
 
+# Pruefen ob Datenbank vorhanden ist ?
+function CreateDatabase () {
+    ${Prompt} -u ${Username} -p${Password} -h ${Hostname} -P ${Port} \
+        -e "CREATE DATABASE IF NOT EXISTS \`"${MySQLDB}"\`;"
+}
+# Pruefen ob Datenbank vorhanden ist, wenn ja dann loeschen
+function DropDatabase () {
+    ${Prompt} -u ${Username} -p${Password} -h ${Hostname} -P ${Port} \
+        -e "DROP DATABASE IF EXISTS \`"${MySQLDB}"\`;"
+}
+
 
 # ReadOnly Tabellen aus der Datei auslesen
 ReadTableNames=
@@ -154,21 +189,17 @@ if [ ${Error} -eq 0 ]; then
 fi
 
 
-# Shell Uebergabe Parameter pruefen
-if [ ${Error} -gt 0 ]; then
+# Auf Fehler pruefen
+if [ ${Error} -gt 1 ] && [ ${Error} -lt 10 ]; then
 
-    echo -e "Error"
+    echo -e "Error in SyncDB.sh!"
     
 # SQL Dumps in die MySQL Datenbank einspielen
 elif [ "$1" == "sync" ]; then
 
     # MySQLDump Kommando ermitteln
     GetBashPrompt "mysql"
-
-    # Pruefen ob Datenbank vorhanden ist ?
-    ${Prompt} -u ${Username} -p${Password} -h ${Hostname} -P ${Port} \
-        -e "CREATE DATABASE IF NOT EXISTS \`"${MySQLDB}"\`;"
-
+    CreateDatabase
 
     # Datenbank ReadOnly Tabellen importieren, 
     # falls ReadOnly Tabellen vorhanden sind
@@ -251,20 +282,16 @@ elif [ "$1" == "dump" ]; then
         # Sichere die ReadOnly Tabellen Struktur
         # - ohne Daten
         # - ohne Kommentare
-        # - ohne Charset Kommentare
-        # - ohne Timezone Kommentare
         # - Ersetze keine Tabellen die schon vorhanden sind (Wichtig !)
         # - ohne Trigger Tabellen
         # | Entferne die AUTO_INCREMENTs von der ReadOnly Struktur
         echo "Dump of readonly table structure . . ."
         ${Prompt} -u ${Username} -p${Password} -h ${Hostname} -P ${Port} \
             --no-data \
-            --skip-comments \
-            --skip-set-charset \
-            --skip-tz-utc \
+            --comments=FALSE \
             --add-drop-table=FALSE \
             --skip-triggers \
-            ${IgnoreUserDataTable} ${MySQLDB} ${ReadTableNames} | \
+            ${MySQLOptions} ${IgnoreUserDataTable} ${MySQLDB} ${ReadTableNames} | \
             sed -e 's/ AUTO_INCREMENT=[0-9]*//' > ${DBPath}"/"${DBNames}"_ReadOnly.sql" || exit
 
     fi
@@ -276,26 +303,20 @@ elif [ "$1" == "dump" ]; then
         # Sichere die ReadOnly Tabellen Struktur von den Benutzer Daten
         # - ohne Daten
         # - ohne Kommentare
-        # - ohne Charset Kommentare
-        # - ohne Timezone Kommentare
         # - Ersetze keine Tabellen die schon vorhanden sind (Wichtig !)
         # - ohne Trigger Tabellen
         # | Entferne die AUTO_INCREMENTs von der ReadOnly Struktur
         echo "Dump of user table structure . . ."
         ${Prompt} -u ${Username} -p${Password} -h ${Hostname} -P ${Port} \
             --no-data \
-            --skip-comments \
-            --skip-set-charset \
-            --skip-tz-utc \
+            --comments=FALSE \
             --skip-triggers \
-            ${MySQLDB} ${UserTableNames} | \
+            ${MySQLOptions} ${MySQLDB} ${UserTableNames} | \
             sed -e 's/ AUTO_INCREMENT=[0-9]*//' > ${DBPath}"/"${DBNames}"_UserStructure.sql" || exit
 
         # Sichern der Benutzer Daten von der Datenbank
         # - ohne Tabellen Struktur
         # - ohne Kommentare
-        # - ohne Charset Kommentare
-        # - ohne Timezone Kommentare
         # - Sortiert nach Primary Keys (wegen Git Diffs)
         # - Eine Zeile pro INSERT (wegen Git Diffs)
         # - Komplette INSERT Syntax mit Spaltennamen
@@ -303,13 +324,11 @@ elif [ "$1" == "dump" ]; then
         echo "Dump of user data . . ."
         ${Prompt} -u ${Username} -p${Password} -h ${Hostname} -P ${Port} \
             --no-create-info \
-            --skip-comments \
-            --skip-set-charset \
-            --skip-tz-utc \
+            --comments=FALSE \
             --order-by-primary \
             --extended-insert=FALSE \
             --complete-insert \
-            ${IgnoreTable} ${MySQLDB} ${UserTableNames} > ${DBPath}"/"${DBNames}"_UserData.sql" || exit
+            ${MySQLOptions} ${IgnoreTable} ${MySQLDB} ${UserTableNames} > ${DBPath}"/"${DBNames}"_UserData.sql" || exit
 
     fi
 
@@ -317,27 +336,21 @@ elif [ "$1" == "dump" ]; then
     # Exportieren der Tabellen Struktur fuer die Daten
     # - ohne Daten
     # - ohne Kommentare
-    # - ohne Charset Kommentare
-    # - ohne Timezone Kommentare
     # - ohne Trigger Tabellen
     # - ohne ReadOnly Tabellen sichern
     # | Entferne die AUTO_INCREMENTs von der Struktur
     echo "Dump of table structure . . ."
     ${Prompt} -u ${Username} -p${Password} -h ${Hostname} -P ${Port} \
         --no-data \
-        --skip-comments \
-	    --skip-set-charset \
-        --skip-tz-utc \
+        --comments=FALSE \
         --skip-triggers \
-        ${IgnoreTable} ${IgnoreUserDataTable} ${MySQLDB} | \
+        ${MySQLOptions} ${IgnoreTable} ${IgnoreUserDataTable} ${MySQLDB} | \
         sed -e 's/ AUTO_INCREMENT=[0-9]*//' > ${DBPath}"/"${DBNames}"_Structure.sql" || exit
 
 
     # Sichern der Daten von der Datenbank
     # - ohne Tabellen Struktur
     # - ohne Kommentare
-    # - ohne Charset Kommentare
-    # - ohne Timezone Kommentare
     # - Sortiert nach Primary Keys (wegen Git Diffs)
     # - Eine Zeile pro INSERT (wegen Git Diffs)
     # - Komplette INSERT Syntax mit Spaltennamen
@@ -345,13 +358,11 @@ elif [ "$1" == "dump" ]; then
     echo "Dump of data . . ."
     ${Prompt} -u ${Username} -p${Password} -h ${Hostname} -P ${Port} \
         --no-create-info \
-        --skip-comments \
-	    --skip-set-charset \
-        --skip-tz-utc \
+        --comments=FALSE \
         --order-by-primary \
         --extended-insert=FALSE \
         --complete-insert \
-        ${IgnoreTable} ${IgnoreUserDataTable} ${MySQLDB} > ${DBPath}"/"${DBNames}"_Data.sql" || exit
+        ${MySQLOptions} ${IgnoreTable} ${IgnoreUserDataTable} ${MySQLDB} > ${DBPath}"/"${DBNames}"_Data.sql" || exit
 
 
 # Komplette Datenbank in SQL Dumps sichern
@@ -366,50 +377,22 @@ elif [ "$1" == "dumpfull" ]; then
         # Sichere die ReadOnly Tabellen Struktur
         # - ohne Daten
         # - ohne Kommentare
-        # - ohne Charset Kommentare
-        # - ohne Timezone Kommentare
         # - Ersetze keine Tabellen die schon vorhanden sind (Wichtig !)
         # - ohne Trigger Tabellen
         echo "Dump of readonly table structure . . ."
         ${Prompt} -u ${Username} -p${Password} -h ${Hostname} -P ${Port} \
             --no-data \
-            --skip-comments \
-            --skip-set-charset \
-            --skip-tz-utc \
+            --comments=FALSE \
             --add-drop-table=FALSE \
             --skip-triggers \
-            ${MySQLDB} ${ReadTableNames} > ${DBPath}"/"${DBNames}"_Full.sql" || exit
+            ${MySQLOptions} ${MySQLDB} ${ReadTableNames} > ${DBPath}"/"${DBNames}"_Full.sql" || exit
 
     fi
 
-    # Datenbank ReadOnly Tabellen exportieren
-    if [ -n "${IgnoreUserDataTable}" ]; then
-
-        # Sichern der Benutzer Daten von der Datenbank
-        # - ohne Kommentare
-        # - ohne Charset Kommentare
-        # - ohne Timezone Kommentare
-        # - Sortiert nach Primary Keys (wegen Git Diffs)
-        # - Eine Zeile pro INSERT (wegen Git Diffs)
-        # - Komplette INSERT Syntax mit Spaltennamen
-        # - Ohne ReadOnly Tabellen
-        echo "Dump of user data . . ."
-        ${Prompt} -u ${Username} -p${Password} -h ${Hostname} -P ${Port} \
-            --skip-comments \
-            --skip-set-charset \
-            --skip-tz-utc \
-            --order-by-primary \
-            --extended-insert=FALSE \
-            --complete-insert \
-            ${IgnoreTable} ${MySQLDB} ${UserTableNames} > ${DBPath}"/"${DBNames}"_UserData.sql" || exit
-
-    fi
 
     # Sichern der Daten von der Datenbank    
     # - Sortiert nach Primary Keys (wegen Git Diffs)
     # - ohne Kommentare
-    # - ohne Charset Kommentare
-    # - ohne Timezone Kommentare
     # - Eine Zeile pro INSERT (wegen Git Diffs)
     # - Komplette INSERT Syntax mit Spaltennamen
     # - Ohne ReadOnly Tabellen
@@ -417,98 +400,123 @@ elif [ "$1" == "dumpfull" ]; then
     echo "Dump of all data with user data . . ."
     ${Prompt} -u ${Username} -p${Password} -h ${Hostname} -P ${Port} \
         --order-by-primary \
-        --skip-comments \
-	    --skip-set-charset \
-        --skip-tz-utc \
+        --comments=FALSE \
         --complete-insert \
-        ${IgnoreTable} ${MySQLDB} | \
+        ${MySQLOptions} ${IgnoreTable} ${MySQLDB} | \
         sed -e 's/ AUTO_INCREMENT=[0-9]*//' >> ${DBPath}"/"${DBNames}"_Full.sql" || exit
 
 
 # Komplette Datenbank in SQL Dumps sichern
-elif [ "$1" == "dumpcomplete" ]; then
+elif [ "$1" == "dumpcomplete" ] || [ "$1" == "dumpfile" ]; then
 
-    # MySQL Prompt
-    GetBashPrompt "mysqldump"
+    Filename=
+    Options=
+    if [ "$1" == "dumpcomplete" ]; then
+        Filename=${DBPath}"/"${DBNames}"_Complete.sql"
+        Options="--order-by-primary"
+    else
+        Filename=$2
+    fi
 
+    # Pruefen auf Dateiname
+    if [ -n ${Filename} ]; then
 
-    # Sichern der Daten von der Datenbank
-    # - Sortiert nach Primary Keys (wegen Git Diffs)
-    # - ohne Kommentare
-    # - ohne Charset Kommentare
-    # - ohne Timezone Kommentare
-    echo "Dump complete database with all in it . . ."
-    ${Prompt} -u ${Username} -p${Password} -h ${Hostname} -P ${Port} \
-        --order-by-primary \
-        --skip-comments \
-	    --skip-set-charset \
-        --skip-tz-utc \
-        ${MySQLDB} > ${DBPath}"/"${DBNames}"_Complete.sql" || exit
+        # MySQL Prompt
+        GetBashPrompt "mysqldump"
+
+        # Sichern der Daten von der Datenbank
+        # - Sortiert nach Primary Keys (wegen Git Diffs)
+        echo "Dump complete database with all in it . . ."
+        ${Prompt} -u ${Username} -p${Password} -h ${Hostname} -P ${Port} \
+            ${Options} ${MySQLOptions} ${MySQLDB} > ${Filename} || exit
+    fi
 
 
 # Komplette Datenbank zurueck in die MySQL Datenbank spielen
-elif [ "$1" == "full" ]; then
+elif [ "$1" == "syncfile" ]; then
 
-    # MySQLDump Kommando ermitteln
-    GetBashPrompt "mysql"
+    # Datei pruefen
+    Filename=
+    ls $2 > /dev/null 2> /dev/null
+    if [ $? != 0 ]; then
 
+        ls $2".sql" > /dev/null 2> /dev/null
 
-    # Pruefen ob Datenbank vorhanden ist, wenn ja drop and create
-    ${Prompt} -u ${Username} -p${Password} -h ${Hostname} -P ${Port} \
-        -e "DROP DATABASE IF EXISTS \`"${MySQLDB}"\`;"
+        if [ $? == 0 ]; then
+            Filename=$2".sql"
 
-    ${Prompt} -u ${Username} -p${Password} -h ${Hostname} -P ${Port} \
-        -e "CREATE DATABASE IF NOT EXISTS \`"${MySQLDB}"\`;"
-
-
-    # Datenbank importieren
-    ls ${DBPath}/$2".sql" > /dev/null 2> /dev/null
-    if [ $? == 0 ]; then
-
-        echo "Import of "$2" sql file ..."
-        ${Prompt} -u ${Username} -p${Password} -h ${Hostname} -P ${Port} \
-         --database=${MySQLDB} < ${DBPath}"/"$2".sql" || exit
+        else
+            echo "Error: File $2 not found!"
+        fi
 
     else
-        echo "Error: ${DBPath}/$2.sql not found !"
+        Filename=$2
 
+    fi
+
+    # Pruefen auf Dateiname
+    if [ -n ${Filename} ]; then
+
+        # MySQLDump Kommando ermitteln
+        GetBashPrompt "mysql"
+        DropDatabase
+        CreateDatabase
+
+        # Datenbank importieren
+        echo "Import of "${Filename}" SQL file ..."
+        ${Prompt} -u ${Username} -p${Password} -h ${Hostname} -P ${Port} \
+            --database=${MySQLDB} < ${Filename} || exit
     fi
 
 
 else
-    
-    # Es wurde nich der richtige Parameter angegeben
-    Error=1
-    
+    # Es wurde wahrscheinlich nicht der richtige Parameter angegeben
+    if [ ${Error} -lt 10 ]; then
+        Error=1
+    fi
 fi
 
 
 # Hilfe Ausgabe der Skript Parameter
 if [ ${Error} -eq 1 ]; then
-
     echo -e "\n###############################################################################"
     echo -e "#"
-    echo -e "#\t\tMySQL synchronisation and dumping BASH shell script"
+    echo -e "#\t     MySQL synchronisation and dumping BASH shell script"
+    echo -e "#"
+    echo -e "#\t\t\t\tVersion "${Version}
     echo -e "#"
     echo -e "###############################################################################"
     echo -e "#"
-    echo -e "#   Param\t\tDescription"
+    echo -e "#   Param\t\t\tDescription"
     echo -e "#"
     echo -e "#------------------------------------------------------------------------------"
     echo -e "#"
-    echo -e "#   sync\t\tDatabase sync"
-    echo -e "#   sync user\t\tDatabase sync with User Data"
+    echo -e "#   sync\t\t\tDatabase sync"
+    echo -e "#   sync user\t\t\tDatabase sync with User Data"
     echo -e "#"
-    echo -e "#   dump\t\tDatabase dump"
-    echo -e "#   dump user\t\tDatabase dump with User Data"
+    echo -e "#   dump\t\t\tDatabase dump"
+    echo -e "#   dump user\t\t\tDatabase dump with User Data"
+    echo -e "#"
+    echo -e "#   dumpfull\t\t\tGenerate one file from five files"
     echo -e "#"
     echo -e "#------------------------------------------------------------------------------"
     echo -e "#"
-    echo -e "#   full <Filename>\t\tInsert SQL Backup file into the Database back"
-    echo -e "#   dumpfull\t\tGenerate one file from five files"
+    echo -e "#   syncfile <Filename>\t\tInsert SQL Backup file into an new Database"
+    echo -e "#   dumpfile <Filename>\t\tGenerate SQL Backup from Database into file"
     echo -e "#"
-    echo -e "#   dumpcomplete\tComplete SQL Database Backup file"
+    echo -e "#   dumpcomplete\t\tGenerate a SQL file order by primary keys"
+    echo -e "#"
+    echo -e "#------------------------------------------------------------------------------"
+    echo -e "#"
+    echo -e "#   license\t\t\tLicense from shell script"
+    echo -e "#   script\t\t\tFilename from shell script"
+    echo -e "#   version\t\t\t${ScriptFilename} Version"
     echo -e "#"
     echo -e "###############################################################################\n"
-
+elif [ ${Error} -eq 10 ]; then
+    echo ${Version}
+elif [ ${Error} -eq 11 ]; then
+    echo ${ScriptFilename}
+elif [ ${Error} -eq 12 ]; then
+    echo "GNU GPL Version 3"
 fi
