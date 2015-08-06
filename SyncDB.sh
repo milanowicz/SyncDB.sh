@@ -6,7 +6,7 @@
 ##                                ##
 ####################################
 ####################################
-Version="0.9.4"
+Version="0.9.5"
 ScriptFilename="SyncDB.sh"
 Error=0
 
@@ -193,7 +193,7 @@ fi
 if [ ${Error} -gt 1 ] && [ ${Error} -lt 10 ]; then
 
     echo -e "Error in SyncDB.sh!"
-    
+
 # SQL Dumps in die MySQL Datenbank einspielen
 elif [ "$1" == "sync" ]; then
 
@@ -201,21 +201,21 @@ elif [ "$1" == "sync" ]; then
     GetBashPrompt "mysql"
     CreateDatabase
 
-    # Datenbank ReadOnly Tabellen importieren, 
+    # Datenbank ReadOnly Tabellen importieren,
     # falls ReadOnly Tabellen vorhanden sind
     if [ -n "${IgnoreTable}" ]; then
-        
+
         ls ${DBPath}"/"${DBNames}"_ReadOnly.sql" > /dev/null 2> /dev/null
-        
+
         if [ $? == 0 ]; then
             echo "Import of readonly table structure . . ."
             # Wenn etwas fehlschaegt, bedeutet es das die Tabelle schon erstellt ist
             ${Prompt} -u ${Username} -p${Password} -h ${Hostname} -P ${Port} \
                 --database=${MySQLDB} < ${DBPath}"/"${DBNames}"_ReadOnly.sql"
-    
+
         else
             echo "Error: ${DBPath}/${DBNames}_ReadOnly.sql not found !"
-    
+
         fi
     fi
 
@@ -275,7 +275,7 @@ elif [ "$1" == "dump" ]; then
     # MySQLDump Kommando ermitteln
     GetBashPrompt "mysqldump"
 
-    
+
     # Datenbank ReadOnly Tabellen exportieren
     if [ -n "${IgnoreTable}" ]; then
 
@@ -327,7 +327,6 @@ elif [ "$1" == "dump" ]; then
             --comments=FALSE \
             --order-by-primary \
             --extended-insert=FALSE \
-            --complete-insert \
             ${MySQLOptions} ${IgnoreTable} ${MySQLDB} ${UserTableNames} > ${DBPath}"/"${DBNames}"_UserData.sql" || exit
 
     fi
@@ -353,15 +352,13 @@ elif [ "$1" == "dump" ]; then
     # - ohne Kommentare
     # - Sortiert nach Primary Keys (wegen Git Diffs)
     # - Eine Zeile pro INSERT (wegen Git Diffs)
-    # - Komplette INSERT Syntax mit Spaltennamen
-    # - Ohne ReadOnly Tabellen    
+    # - Ohne ReadOnly Tabellen
     echo "Dump of data . . ."
     ${Prompt} -u ${Username} -p${Password} -h ${Hostname} -P ${Port} \
         --no-create-info \
         --comments=FALSE \
         --order-by-primary \
         --extended-insert=FALSE \
-        --complete-insert \
         ${MySQLOptions} ${IgnoreTable} ${IgnoreUserDataTable} ${MySQLDB} > ${DBPath}"/"${DBNames}"_Data.sql" || exit
 
 
@@ -370,7 +367,7 @@ elif [ "$1" == "dumpfull" ]; then
 
     # MySQLDump Kommando ermitteln
     GetBashPrompt "mysqldump"
-        
+
     # Datenbank ReadOnly Tabellen exportieren
     if [ -n "${IgnoreTable}" ]; then
 
@@ -390,7 +387,7 @@ elif [ "$1" == "dumpfull" ]; then
     fi
 
 
-    # Sichern der Daten von der Datenbank    
+    # Sichern der Daten von der Datenbank
     # - Sortiert nach Primary Keys (wegen Git Diffs)
     # - ohne Kommentare
     # - Eine Zeile pro INSERT (wegen Git Diffs)
@@ -401,7 +398,6 @@ elif [ "$1" == "dumpfull" ]; then
     ${Prompt} -u ${Username} -p${Password} -h ${Hostname} -P ${Port} \
         --order-by-primary \
         --comments=FALSE \
-        --complete-insert \
         ${MySQLOptions} ${IgnoreTable} ${MySQLDB} | \
         sed -e 's/ AUTO_INCREMENT=[0-9]*//' >> ${DBPath}"/"${DBNames}"_Full.sql" || exit
 

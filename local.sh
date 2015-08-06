@@ -22,8 +22,8 @@ export DBNames="<Project Name>"
 # Optional: Real MySQL Databasename
 export MySQLDB="<Real Database Name>"
 
-# Example and Optional: skip Timezone, skip Charset, skip Comments
-export MySQLOptions="--skip-tz-utc --skip-set-charset --skip-comments"
+# Example and Optional: complete insert SQL, skip Timezone, skip Charset, skip Comments
+export MySQLOptions="--complete-insert --skip-tz-utc --skip-set-charset --skip-comments"
 
 # Sync script
 ${DBPath}/SyncDB.sh $1 $2

@@ -12,6 +12,21 @@ Set parameter for the SyncDB.sh script to do the job.
     Project/db/SyncDB.sh
 
 
+## General Usage
+
+Show license from SyncDB.sh script.
+
+    $ . local.sh license
+
+Show script filename
+
+    $ . local.sh script
+    
+Show script version
+
+    $ . local.sh version
+    
+
 ## Develop usage
 
 Insert Sql files into the Database.
@@ -30,18 +45,22 @@ Dump Database into Sql dump files with User data.
 
     $ . local.sh dump user
 
+Generate one file from five files.
+
+    $ . local.sh dumpfulle
+
 
 ## Special operations
 
+Dump Database into the Database SQL file.
+
+    $ . local.sh dumpfile <Filename>
+
 Insert SQL Backup file into the Database back.
 
-    $ . local.sh full <Filename>
+    $ . local.sh syncfile <Filename>
 
-Generate one file from five files.
-
-    $ . local.sh dumpfull
-
-Complete SQL Database Backup file.
+Complete SQL Database Backup file and order by primary keys.
 
     $ . local.sh dumpcomplete
 
