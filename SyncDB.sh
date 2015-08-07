@@ -6,7 +6,7 @@
 ##                                ##
 ####################################
 ####################################
-Version="0.9.5"
+Version="0.9.6"
 ScriptFilename="SyncDB.sh"
 Error=0
 
@@ -47,6 +47,7 @@ if [ -z ${MySQLOptions} ]; then
     MySQLOptions=""
 fi
 
+# Special Database operations
 if [ "$1" != "dumpfile" ] && [ "$1" != "syncfile" ]; then
 
     # Set DBPath if empty
@@ -146,7 +147,6 @@ function DropDatabase () {
 # ReadOnly Tabellen aus der Datei auslesen
 ReadTableNames=
 IgnoreTable=
-
 if [ ${Error} -eq 0 ]; then
     ls ${DBPath}"/"${DBNames}"_ReadTable" > /dev/null 2> /dev/null
     if [ $? == 0 ]; then
@@ -168,7 +168,6 @@ fi
 # User Daten Tabellen aus der Datei auslesen
 UserTableNames=
 IgnoreUserDataTable=
-
 if [ ${Error} -eq 0 ]; then
 
     ls ${DBPath}"/"${DBNames}"_UserTable" > /dev/null 2> /dev/null
@@ -183,6 +182,27 @@ if [ ${Error} -eq 0 ]; then
         # UserTableNames String mit --ignore-table verschachteln
         for Elem in ${UserTableNames} ; do
             IgnoreUserDataTable="${IgnoreUserDataTable} --ignore-table=${MySQLDB}.$Elem"
+        done
+
+    fi
+fi
+
+
+# Ignore this tables complete and dump it nowhere
+RemoveTableNames=
+RemoveTable=
+if [ ${Error} -eq 0 ]; then
+    ls ${DBPath}"/"${DBNames}"_IgnoreTable" > /dev/null 2> /dev/null
+    if [ $? == 0 ]; then
+
+        while read Line
+        do
+            RemoveTableNames="${RemoveTableNames} $Line"
+        done < ${DBPath}"/"${DBNames}"_IgnoreTable"
+
+        # RemoveTableNames String pack with --ignore-table
+        for Elem in ${RemoveTableNames} ; do
+            RemoveTable="${RemoveTable} --ignore-table=${MySQLDB}.$Elem"
         done
 
     fi
@@ -291,7 +311,7 @@ elif [ "$1" == "dump" ]; then
             --comments=FALSE \
             --add-drop-table=FALSE \
             --skip-triggers \
-            ${MySQLOptions} ${IgnoreUserDataTable} ${MySQLDB} ${ReadTableNames} | \
+            ${MySQLOptions} ${RemoveTable} ${IgnoreUserDataTable} ${MySQLDB} ${ReadTableNames} | \
             sed -e 's/ AUTO_INCREMENT=[0-9]*//' > ${DBPath}"/"${DBNames}"_ReadOnly.sql" || exit
 
     fi
@@ -311,7 +331,7 @@ elif [ "$1" == "dump" ]; then
             --no-data \
             --comments=FALSE \
             --skip-triggers \
-            ${MySQLOptions} ${MySQLDB} ${UserTableNames} | \
+            ${MySQLOptions} ${RemoveTable} ${MySQLDB} ${UserTableNames} | \
             sed -e 's/ AUTO_INCREMENT=[0-9]*//' > ${DBPath}"/"${DBNames}"_UserStructure.sql" || exit
 
         # Sichern der Benutzer Daten von der Datenbank
@@ -327,7 +347,8 @@ elif [ "$1" == "dump" ]; then
             --comments=FALSE \
             --order-by-primary \
             --extended-insert=FALSE \
-            ${MySQLOptions} ${IgnoreTable} ${MySQLDB} ${UserTableNames} > ${DBPath}"/"${DBNames}"_UserData.sql" || exit
+            ${MySQLOptions} ${RemoveTable} ${IgnoreTable} ${MySQLDB} \
+            ${UserTableNames} > ${DBPath}"/"${DBNames}"_UserData.sql" || exit
 
     fi
 
@@ -343,7 +364,7 @@ elif [ "$1" == "dump" ]; then
         --no-data \
         --comments=FALSE \
         --skip-triggers \
-        ${MySQLOptions} ${IgnoreTable} ${IgnoreUserDataTable} ${MySQLDB} | \
+        ${MySQLOptions} ${RemoveTable} ${IgnoreTable} ${IgnoreUserDataTable} ${MySQLDB} | \
         sed -e 's/ AUTO_INCREMENT=[0-9]*//' > ${DBPath}"/"${DBNames}"_Structure.sql" || exit
 
 
@@ -359,7 +380,8 @@ elif [ "$1" == "dump" ]; then
         --comments=FALSE \
         --order-by-primary \
         --extended-insert=FALSE \
-        ${MySQLOptions} ${IgnoreTable} ${IgnoreUserDataTable} ${MySQLDB} > ${DBPath}"/"${DBNames}"_Data.sql" || exit
+        ${MySQLOptions} ${RemoveTable} ${IgnoreTable} ${IgnoreUserDataTable} \
+        ${MySQLDB} > ${DBPath}"/"${DBNames}"_Data.sql" || exit
 
 
 # Komplette Datenbank in SQL Dumps sichern
@@ -382,7 +404,7 @@ elif [ "$1" == "dumpfull" ]; then
             --comments=FALSE \
             --add-drop-table=FALSE \
             --skip-triggers \
-            ${MySQLOptions} ${MySQLDB} ${ReadTableNames} > ${DBPath}"/"${DBNames}"_Full.sql" || exit
+            ${MySQLOptions} ${MySQLDB} ${RemoveTable} ${ReadTableNames} > ${DBPath}"/"${DBNames}"_Full.sql" || exit
 
     fi
 
@@ -398,7 +420,7 @@ elif [ "$1" == "dumpfull" ]; then
     ${Prompt} -u ${Username} -p${Password} -h ${Hostname} -P ${Port} \
         --order-by-primary \
         --comments=FALSE \
-        ${MySQLOptions} ${IgnoreTable} ${MySQLDB} | \
+        ${MySQLOptions} ${RemoveTable} ${IgnoreTable} ${MySQLDB} | \
         sed -e 's/ AUTO_INCREMENT=[0-9]*//' >> ${DBPath}"/"${DBNames}"_Full.sql" || exit
 
 
@@ -424,7 +446,7 @@ elif [ "$1" == "dumpcomplete" ] || [ "$1" == "dumpfile" ]; then
         # - Sortiert nach Primary Keys (wegen Git Diffs)
         echo "Dump complete database with all in it . . ."
         ${Prompt} -u ${Username} -p${Password} -h ${Hostname} -P ${Port} \
-            ${Options} ${MySQLOptions} ${MySQLDB} > ${Filename} || exit
+            ${Options} ${MySQLOptions} ${RemoveTable} ${MySQLDB} > ${Filename} || exit
     fi
 
 
@@ -473,7 +495,7 @@ else
 fi
 
 
-# Hilfe Ausgabe der Skript Parameter
+# Help Message for params for this script
 if [ ${Error} -eq 1 ]; then
     echo -e "\n###############################################################################"
     echo -e "#"
